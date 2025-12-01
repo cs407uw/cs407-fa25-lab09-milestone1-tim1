@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.update
 
 class BallViewModel : ViewModel() {
 
+    // Scaling factor to adjust physics motion to screen size (pixels/m^2).
+    // This value is crucial for realistic visual speed.
+    private val SCALING_FACTOR = 500f // Adjusted for visual speed
+
     private var ball: Ball? = null
     private var lastTimestamp: Long = 0L
 
@@ -20,15 +24,18 @@ class BallViewModel : ViewModel() {
 
     /**
      * Called by the UI when the game field's size is known.
+     * CRITICAL FIX: This function now re-initializes the ball whenever it's called.
+     * This ensures that the ball's boundaries are updated with the final, correct layout size,
+     * even if onSizeChanged is called multiple times.
      */
     fun initBall(fieldWidth: Float, fieldHeight: Float, ballSizePx: Float) {
-        if (ball == null) {
-            // TODO: Initialize the ball instance
-            // ball = Ball(...)
-
-            // TODO: Update the StateFlow with the initial position
-            // _ballPosition.value = Offset(ball!!.posX, ball!!.posY)
-        }
+        // The if-statement that prevented re-initialization has been removed.
+        ball = Ball(
+            backgroundWidth = fieldWidth,
+            backgroundHeight = fieldHeight,
+            ballSize = ballSizePx
+        )
+        _ballPosition.value = Offset(ball!!.posX, ball!!.posY)
     }
 
     /**
@@ -39,33 +46,36 @@ class BallViewModel : ViewModel() {
         val currentBall = ball ?: return
 
         if (event.sensor.type == Sensor.TYPE_GRAVITY) {
+            val currentTimestamp = event.timestamp
+
             if (lastTimestamp != 0L) {
-                // TODO: Calculate the time difference (dT) in seconds
-                // Hint: event.timestamp is in nanoseconds
-                // val NS2S = 1.0f / 1000000000.0f
-                // val dT = ...
+                // Calculate the time difference (dT) in seconds
+                val NS2S = 1.0f / 1000000000.0f
+                val dT = (currentTimestamp - lastTimestamp) * NS2S
 
-                // TODO: Update the ball's position and velocity
-                // Hint: The sensor's x and y-axis are inverted
-                // currentBall.updatePositionAndVelocity(xAcc = ..., yAcc = ..., dT = ...)
+                // Sensor X-axis (event.values[0])
+                val xAcc = -event.values[0] * SCALING_FACTOR
 
-                // TODO: Update the StateFlow to notify the UI
-                // _ballPosition.update { Offset(currentBall.posX, currentBall.posY) }
+                // Sensor Y-axis (event.values[1])
+                val yAcc = event.values[1] * SCALING_FACTOR
+
+                // Update the ball's position and velocity
+                currentBall.updatePositionAndVelocity(xAcc = xAcc, yAcc = yAcc, dT = dT)
+
+                _ballPosition.update { Offset(currentBall.posX, currentBall.posY) }
             }
 
-            // TODO: Update the lastTimestamp
-            // lastTimestamp = ...
+            lastTimestamp = currentTimestamp
         }
     }
 
     fun reset() {
-        // TODO: Reset the ball's state
-        // ball?.reset()
+        ball?.reset()
 
-        // TODO: Update the StateFlow with the reset position
-        // ball?.let { ... }
+        ball?.let {
+            _ballPosition.value = Offset(it.posX, it.posY)
+        }
 
-        // TODO: Reset the lastTimestamp
-        // lastTimestamp = 0L
+        lastTimestamp = 0L
     }
 }

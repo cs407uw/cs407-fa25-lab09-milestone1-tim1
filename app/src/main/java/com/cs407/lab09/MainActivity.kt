@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -36,7 +35,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cs407.lab09.R
 import com.cs407.lab09.ui.theme.Lab09Theme
 import kotlin.math.roundToInt
 
@@ -62,100 +60,71 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GameScreen(viewModel: BallViewModel) {
-    // TODO: Initialize the sensorManager
-    val sensorManager = remember {
-        // ... getSystemService ...
-    }
+    val ballPosition by viewModel.ballPosition.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val ballSize = 50.dp
 
-    // TODO: Get the gravitySensor
-    val gravitySensor = remember {
-        // ... getDefaultSensor ...
-    }
+    // FIX: Capture density at composition level, not inside callbacks
+    val density = LocalDensity.current
+    val ballSizePx = with(density) { ballSize.toPx() }
 
-    // This effect runs when the composable enters the screen
-    // and cleans up when it leaves
-    DisposableEffect(sensorManager, gravitySensor) {
-        val listener = object : SensorEventListener {
+    val sensorEventListener = remember {
+        object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                // TODO: Pass the sensor event to the ViewModel
                 event?.let {
-                    // ...
+                    viewModel.onSensorDataChanged(it)
                 }
             }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // Do nothing
-            }
-        }
 
-        // TODO: Register the sensor listener
-        // (Don't forget to add a null check for gravitySensor!)
-        if (gravitySensor != null) {
-            // ... sensorManager.registerListener ...
-        }
-
-        // onDispose is called when the composable leaves the screen
-        onDispose {
-            // TODO: Unregister the sensor listener
-            // (Don't forget to add a null check for gravitySensor!)
-            if (gravitySensor != null) {
-                // ... sensorManager.unregisterListener ...
-            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
     }
 
-    // UI layout
-    Column(modifier = Modifier.fillMaxSize()) {
-        // 1. The Reset Button
-        Button(
-            onClick = {
-                // TODO: Call the reset function on the ViewModel
-            },
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(16.dp)
-        ) {
-            Text(text = "Reset")
+    DisposableEffect(Unit) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
+        sensorManager.registerListener(sensorEventListener, gravitySensor, SensorManager.SENSOR_DELAY_GAME)
+
+        onDispose {
+            sensorManager.unregisterListener(sensorEventListener)
         }
+    }
 
-        // 2. The Game Field
-        val ballSize = 50.dp
-        val ballSizePx = with(LocalDensity.current) { ballSize.toPx() }
-
-        // TODO: Collect the ball's position from the ViewModel
-        // val ballPosition by viewModel.ballPosition.collectAsStateWithLifecycle()
-
-        // Placeholder, remove when TODO is done:
-        val ballPosition = Offset.Zero
-
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(1f)
-                .paint(
-                    painter = painterResource(id = R.drawable.field),
-                    contentScale = ContentScale.FillBounds
-                )
-                .onSizeChanged { size ->
-                    // TODO: Tell the ViewModel the size of the field
-                    // viewModel.initBall(...)
-                }
-        ) {
-            // 3. The Ball
-            Image(
-                painter = painterResource(id = R.drawable.soccer),
-                contentDescription = "Soccer Ball",
-                modifier = Modifier
-                    .size(ballSize)
-                    .offset {
-                        // TODO: Use the collected ballPosition to set the offset
-                        // Hint: You need to convert Float to Int
-                        IntOffset(
-                            x = ballPosition.x.roundToInt(),
-                            y = ballPosition.y.roundToInt()
-                        )
-                    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .paint(
+                painter = painterResource(id = R.drawable.field),
+                contentScale = ContentScale.FillBounds
             )
+            .onSizeChanged { size ->
+                // FIX: Use the pre-calculated ballSizePx instead of calling LocalDensity here
+                viewModel.initBall(
+                    fieldWidth = size.width.toFloat(),
+                    fieldHeight = size.height.toFloat(),
+                    ballSizePx = ballSizePx
+                )
+            }
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.soccer),
+            contentDescription = "Soccer Ball",
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        ballPosition.x.roundToInt(),
+                        ballPosition.y.roundToInt()
+                    )
+                }
+                .size(ballSize)
+        )
+
+        Column(modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(16.dp)) {
+            Button(onClick = { viewModel.reset() }) {
+                Text("Reset")
+            }
         }
     }
 }

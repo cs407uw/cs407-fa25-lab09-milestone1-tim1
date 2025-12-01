@@ -1,61 +1,67 @@
 package com.cs407.lab09
 
-/**
- * Represents a ball that can move. (No Android UI imports!)
- *
- * Constructor parameters:
- * - backgroundWidth: the width of the background, of type Float
- * - backgroundHeight: the height of the background, of type Float
- * - ballSize: the width/height of the ball, of type Float
- */
-class Ball(
-    private val backgroundWidth: Float,
-    private val backgroundHeight: Float,
-    private val ballSize: Float
-) {
-    var posX = 0f
-    var posY = 0f
-    var velocityX = 0f
-    var velocityY = 0f
-    private var accX = 0f
-    private var accY = 0f
+class Ball(val backgroundWidth: Float, val backgroundHeight: Float, val ballSize: Float) {
 
-    private var isFirstUpdate = true
+    // Initial position in the center of the screen
+    private val initialPosX = (backgroundWidth - ballSize) / 2f
+    private val initialPosY = (backgroundHeight - ballSize) / 2f
 
-    init {
-        // TODO: Call reset()
-    }
+    var posX: Float = initialPosX
+    var posY: Float = initialPosY
+
+    // Initial velocity
+    private var velX: Float = 0f
+    private var velY: Float = 0f
 
     /**
-     * Updates the ball's position and velocity based on the given acceleration and time step.
-     * (See lab handout for physics equations)
+     * Updates the ball's position and velocity based on acceleration and time delta.
+     * It also handles collisions with the screen boundaries.
      */
     fun updatePositionAndVelocity(xAcc: Float, yAcc: Float, dT: Float) {
-        if(isFirstUpdate) {
-            isFirstUpdate = false
-            accX = xAcc
-            accY = yAcc
-            return
+
+        // Update velocity based on acceleration and time.
+        velX += xAcc * dT
+        velY += yAcc * dT
+
+        // Update position based on velocity and time.
+        posX += velX * dT
+        posY += velY * dT
+
+        // --- Boundary Collision Detection ---
+
+        // Left boundary
+        if (posX < 0) {
+            posX = 0f
+            velX = -velX * 0.8f // Reflect and dampen
         }
 
+        // Right boundary
+        if (posX + ballSize > backgroundWidth) {
+            posX = backgroundWidth - ballSize
+            velX = -velX * 0.8f // Reflect and dampen
+        }
+
+        // Top boundary
+        if (posY < 0) {
+            posY = 0f
+            velY = -velY * 0.8f // Reflect and dampen
+        }
+
+        // CRITICAL FIX: The bottom boundary should be the full height of the background,
+        // not half of it.
+        if (posY + ballSize > backgroundHeight) {
+            posY = backgroundHeight - ballSize
+            velY = -velY * 0.8f // Reflect and dampen
+        }
     }
 
     /**
-     * Ensures the ball does not move outside the boundaries.
-     * When it collides, velocity and acceleration perpendicular to the
-     * boundary should be set to 0.
-     */
-    fun checkBoundaries() {
-        // TODO: implement the checkBoundaries function
-        // (Check all 4 walls: left, right, top, bottom)
-    }
-
-    /**
-     * Resets the ball to the center of the screen with zero
-     * velocity and acceleration.
+     * Resets the ball to its initial state.
      */
     fun reset() {
-        // TODO: implement the reset function
-        // (Reset posX, posY, velocityX, velocityY, accX, accY, isFirstUpdate)
+        posX = initialPosX
+        posY = initialPosY
+        velX = 0f
+        velY = 0f
     }
 }
